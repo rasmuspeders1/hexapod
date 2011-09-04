@@ -21,7 +21,7 @@ def getTMatrix(translation, (roll, pitch, yaw)):
 
     TMatrix12 = -cos(rad(roll))*sin(rad(yaw)) + cos(rad(yaw))*sin(rad(roll))*sin(rad(pitch))
     TMatrix22 = cos(rad(roll))*cos(rad(yaw)) + sin(rad(roll))*sin(rad(pitch))*sin(rad(yaw))
-    TMatrix32 = cos(rad(pitch))*sin(rad(yaw))
+    TMatrix32 = cos(rad(pitch))*sin(rad(roll))
     TMatrix42 = 0
 
     TMatrix13 = sin(rad(roll))*sin(rad(yaw)) + cos(rad(roll))*cos(rad(yaw))*sin(rad(pitch))
@@ -41,7 +41,7 @@ def getTMatrix(translation, (roll, pitch, yaw)):
                          [TMatrix41, TMatrix42, TMatrix43, TMatrix44]
                         ]
                        )
-
+   
 class InvalidIKInput(Exception):
     """
     Exception Class for Inverse kinematics methods of hexapod.Limb class 
@@ -108,7 +108,7 @@ class Body:
 
         TMatrix12 = -cos(rad(self.roll))*sin(rad(self.yaw)) + cos(rad(self.yaw))*sin(rad(self.roll))*sin(rad(self.pitch))
         TMatrix22 = cos(rad(self.roll))*cos(rad(self.yaw)) + sin(rad(self.roll))*sin(rad(self.pitch))*sin(rad(self.yaw))
-        TMatrix32 = cos(rad(self.pitch))*sin(rad(self.yaw))
+        TMatrix32 = cos(rad(self.pitch))*sin(rad(self.roll))
         TMatrix42 = 0
 
         TMatrix13 = sin(rad(self.roll))*sin(rad(self.yaw)) + cos(rad(self.roll))*cos(rad(self.yaw))*sin(rad(self.pitch))

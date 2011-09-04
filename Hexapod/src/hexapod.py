@@ -110,9 +110,7 @@ class Hexapod:
                     self.controller.centerOffsets[link.servoAddr] = link.centerOffset
         
 
-        self.gait_engine = GaitEngine()
-        self.y = 0
-        
+        self.gait_engine = GaitEngine()        
 
         self.hexapodLogger.info('Hexapod Initialized.')
 

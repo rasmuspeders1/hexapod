@@ -130,6 +130,7 @@ class Maestro(threading.Thread):
         self.maestroLogger.info('Maestro servo controller interface stopping.')
         self.go_home_all()
         self.stopEvent.set()
+        time.sleep(0.1)
         self.join()
         self.maestroLogger.info('Maestro servo controller interface stopped.')
     
