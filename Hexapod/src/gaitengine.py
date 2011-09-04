@@ -49,7 +49,7 @@ class GaitEngine:
         
         
         #current position of body in global frame
-        self.body_pos = numpy.matrix([[0], [0], [10]])
+        self.body_pos = numpy.matrix([[0], [0], [0]])
         #destination of body in current gait cycle
         self.body_dest = numpy.matrix([[0], [0], [0]])
         #starting point for body in current gait cycle
@@ -59,12 +59,15 @@ class GaitEngine:
         self.body_rot_start = numpy.matrix([[0], [0], [0]])
         self.body_rot_dest = numpy.matrix([[0], [0], [0]])
         
+        #free height under the robot
+        self.body_offset = numpy.matrix([[0], [0], [15]])
+        
         #=======================================================================
         # Gait vars. these determine speed, step length and lift height (shape)
         #=======================================================================
         #average length of steps in mm
-        self.step_length = 50.0
-        self.max_step_length = 80.0
+        self.__step_length = 50.0
+        self.max_step_length = 50.0
         self.feet_lift = 10.0
         self.bezier_delta1 = numpy.matrix([[0], [0], [30]])        
         self.bezier_delta2 = numpy.matrix([[0], [0], [30]])
@@ -85,12 +88,12 @@ class GaitEngine:
         self.gait_direction = None
 
         #call set_gait_direction method to calculate initial move_vector
-        self.set_gait_direction((1, 0, 0))
+        self.set_gait_direction(1.0, -0.5)
         
         #time to complete one cycle. 
         #A cycle is the time it takes to take one step.
         #This is also set when calling set_speed()
-        self.total_cycle_time = float(self.step_length) / float(self.speed)
+        self.total_cycle_time = float(self.__step_length) / float(self.speed)
         
         #lists of free feet and feet on the ground. I.E. feet in the air and feet on the ground
         #these are values relevant for the tripod gait.
@@ -113,7 +116,7 @@ class GaitEngine:
         #starting point of feet for current gait cycle
         self.feet_start = {}
         
-        self.set_speed(150.0)
+        self.set_speed(80)
 
         
     def get_feet_positions(self):
@@ -179,9 +182,9 @@ class GaitEngine:
                                               self.feet_dest[foot] + self.bezier_delta2,
                                               self.feet_dest[foot],
                                               self.t_cycle, self.total_cycle_time)
-        #calculate new body position
+        #calculate new body position. Linear interpolation.
         self.body_pos = self.body_start + (self.body_dest - self.body_start) * t_norm
-        #calculate body rotation
+        #calculate body rotation. Linear interpolation.
         self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
             
     def start_next_tripod_cycle(self):
@@ -192,41 +195,46 @@ class GaitEngine:
         self.ground_feet, self.free_feet = self.free_feet, self.ground_feet
         
         #calculate gait yaw (how much the next step should rotate the robot).
-        gait_yaw = degrees(acos(numpy.dot(self.gait_direction.transpose(), numpy.matrix([[1.0], [0], [0]]))))
-        self.logger.info('Gait Yaw: %f',gait_yaw)
-        
-        translate_vector = self.gait_direction * self.step_length
-        
-        t_matrix = kinematics.getTMatrix(translate_vector, (0, 0, gait_yaw))
-        self.logger.info("Transformation Matrix:\n%s",str(t_matrix))
-  
+        if self.gait_direction[0] < 0:
+            gait_yaw = degrees(atan2(-self.gait_direction[1],-self.gait_direction[0]))
+        else:
+            gait_yaw = degrees(atan2(self.gait_direction[1],self.gait_direction[0]))
+        self.logger.info('Gait Yaw: %f' % gait_yaw)
         
         if self.cycle == 0:
-            for foot in self.free_feet:
-                self.feet_start[foot] = self.feet_pos[foot]
-                self.feet_dest[foot] = self.feet_start[foot] + self.gait_direction * (self.step_length / 2.0)
-            
-            #set relative body position start and destination
-            self.body_start = self.body_pos
-            self.body_dest = self.body_start + self.gait_direction * (self.step_length / 4.0)
-                
-        else:
+            translate_vector = self.gait_direction * self.__step_length * (numpy.linalg.norm(self.gait_direction[0]) / 2.0)
+            t_matrix = kinematics.getTMatrix(translate_vector, (0, 0, gait_yaw / 4.0))
+            self.logger.info('gait T Matrix\n%s', t_matrix)
             #set start and destination positions for free feet
             #TODO: implement turning gait.
             for foot in self.free_feet:
                 self.feet_start[foot] = self.feet_pos[foot]
+                self.feet_dest[foot] = (t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
                 
-                self.feet_dest[foot] = self.feet_start[foot] + translate_vector
-                #self.feet_dest[foot] = (t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([0]), axis=0))[0:3]
-                self.logger.info("\n%s\n%s\n%s", foot, str(t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([0]), axis=0)), str(self.feet_dest[foot]) )
-                
-                
-            #set relative body position start and destination
-            self.body_start = self.body_pos            
-            self.body_dest = self.body_start + self.gait_direction * (self.step_length / 2.0)
-            
-            #self.body_rot_start = self.body_rot
-            #self.body_rot_dest = self.body_rot_start + numpy.matrix([[0], [0], [gait_yaw / 2.0]])
+        else:
+            translate_vector = self.gait_direction * self.__step_length * numpy.linalg.norm(self.gait_direction[0])
+            t_matrix = kinematics.getTMatrix(translate_vector, (0, 0, gait_yaw / 2.0))
+            self.logger.info('gait T Matrix\n%s', t_matrix)
+            #set start and destination positions for free feet
+            #TODO: implement turning gait.
+            for foot in self.free_feet:
+                self.feet_start[foot] = self.feet_pos[foot]
+                self.feet_dest[foot] = (t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
+              
+        
+        self.body_start = self.body_pos
+        free_dest_incenter = self.incenter(self.feet_dest[self.free_feet[0]],
+                                      self.feet_dest[self.free_feet[1]],
+                                      self.feet_dest[self.free_feet[2]]) 
+        
+        ground_incenter = self.incenter(self.feet_pos[self.ground_feet[0]],
+                                        self.feet_pos[self.ground_feet[1]],
+                                        self.feet_pos[self.ground_feet[2]])
+        
+        self.body_dest = self.body_offset + ground_incenter + (free_dest_incenter - ground_incenter) / 2.0 
+        self.logger.info("ground incenter:\n%s\nfree incenter\n%s\nbody_dest:\n%s",ground_incenter, free_dest_incenter, self.body_dest)
+        self.body_rot_start = self.body_rot
+        self.body_rot_dest = self.body_rot_start + numpy.matrix([[0], [0], [gait_yaw / 4.0]])
             
             
     
@@ -239,65 +247,57 @@ class GaitEngine:
         except:
             raise TypeError('Input must be float or be valid argument for float()')
         
-        self.step_length = min(self.speed / 2.0, self.max_step_length)
+        self.__step_length = min(self.speed / 2.0, self.max_step_length)
         
-        self.feet_lift = max(10.0, min(self.step_length / 10.0, 30.0))
+        self.feet_lift = max(10.0, min(self.__step_length / 10.0, 30.0))
         
         self.bezier_delta1 = numpy.matrix([[0], [0], [self.feet_lift]])
         self.bezier_delta2 = numpy.matrix([[0], [0], [self.feet_lift]])  
         
         
-        self.total_cycle_time = self.step_length / self.speed 
+        self.total_cycle_time = self.__step_length / self.speed 
 
         
-    def set_gait_direction(self, direction):
+    def set_gait_direction(self, x, y):
         """
         Method that sets the movement gait_direction of the gait.
         input must be given as unit gait_direction column vector in the global frame
         """
-        if not type(direction) is tuple and len(direction) == 3:
-            raise TypeError('Input Must be tuple of length 3.')
         
         #convert input tuple to numpy matrix
-        self.gait_direction = numpy.matrix([[float(direction[0])],
-                                       [float(direction[1])],
-                                       [float(direction[2])]
+        self.gait_direction = numpy.matrix([[float(x)],
+                                       [float(y)],
+                                       [0]
                                        ])
         
         #make sure gait_direction vector is normalized
         self.gait_direction = self.gait_direction / numpy.linalg.norm(self.gait_direction)
     
-    def set_body_direction(self, direction):
-        """
-        Method to set the relative movement gait_direction of the body.
-        """
-        if not type(direction) is tuple and len(direction) == 3:
-            raise TypeError('Input Must be tuple of length 3.')
-        
-        #convert input tuple to numpy matrix
-        self.body_direction = numpy.matrix([[direction[0]],
-                                            [direction[1]],
-                                            [direction[2]]
-                                           ])
-        
-        #make sure gait_direction vector is normalized
-        self.body_direction = self.body_direction / numpy.linalg.norm(self.body_direction)
-        
-        #calculate movement vector for relative body motion
-        self.body_move_vector = self.body_direction * self.body_speed
-
-    def set_body_speed(self, speed):
-        """
-        Method that sets the gait speed in mm/sec 
-        """
-        try:
-            self.body_speed = float(speed)
-        except:
-            raise TypeError('Input must be float or be valid argument for float()')
-        
-        self.body_move_vector = self.body_direction * self.body_speed   
     
     def bezier(self, p0, p1, p2, p3, t, t_total):
         t_norm = float(t) / float(t_total)
         return (1 - t_norm) ** 3 * p0 + 3 * (1 - t_norm) ** 2 * t_norm * p1 + 3 * (1 - t_norm) * t_norm ** 2 * p2 + t_norm ** 3 * p3
     
+    def incenter(self, p0, p1, p2):
+        """
+        method that returns the coordinates of the incenter of the triangle with vertices in p0, p1 and p2
+        """
+        #a is the length of the side opposite p0
+        a = numpy.linalg.norm(p1 - p2)
+        #b is the length of the side opposite p1
+        b = numpy.linalg.norm(p2 - p0)
+        #c is the length of the side opposite p2
+        c = numpy.linalg.norm(p0 - p1)
+        
+        sides = numpy.matrix([[numpy.linalg.norm(p1 - p2)], [numpy.linalg.norm(p2 - p0)], [numpy.linalg.norm(p0 - p1)]])
+        
+        triangle = numpy.append(p0, p1, axis = 1)
+        triangle = numpy.append(triangle, p2, axis = 1)
+        
+        incenter = (triangle * sides) / (a + b + c)
+        
+        self.logger.info("incenter \n%s",incenter)
+        return incenter
+        
+        
+        
