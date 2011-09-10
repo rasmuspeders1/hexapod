@@ -8,11 +8,14 @@ from math import radians as rad
 from math import cos as cos
 from math import sin as sin
 
-def getTMatrix(translation, (roll, pitch, yaw)):
+def get_t_matrix(translation, rotation):
     """
     method that returns a generic transformation matrix 
     from a 3-dimensional position and rotation
     """
+    roll = float(rotation[0])
+    pitch = float(rotation[1])
+    yaw = float(rotation[2])
     
     TMatrix11 = cos(rad(yaw))*cos(rad(pitch))
     TMatrix21 = sin(rad(yaw))*cos(rad(pitch))
@@ -96,7 +99,7 @@ class Body:
         self.y = float(pos[1])
         self.z = float(pos[2])
 
-    def getTMatrix(self):
+    def get_t_matrix(self):
         """
         method that returns the transformation matrix for the robot body
         This matrix transforms body coordinates the global coordinates
@@ -201,7 +204,7 @@ class Link:
         self.centerOffset = centerOffset
         self.mirrored = mirrored
 
-    def getTMatrix(self):
+    def get_t_matrix(self):
         return numpy.matrix([
                              [ math.cos(math.radians(self.theta)), -math.sin(math.radians(self.theta)) * math.cos(math.radians(self.alpha)),  math.sin(math.radians(self.theta)) * math.sin(math.radians(self.alpha)), self.a * math.cos(math.radians(self.theta))],
                              [ math.sin(math.radians(self.theta)),  math.cos(math.radians(self.theta)) * math.cos(math.radians(self.alpha)), -math.cos(math.radians(self.theta)) * math.sin(math.radians(self.alpha)), self.a * math.sin(math.radians(self.theta))],

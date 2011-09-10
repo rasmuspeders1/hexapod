@@ -67,12 +67,12 @@ class GaitEngine:
         #=======================================================================
         #average length of steps in mm
         self.__step_length = 50.0
-        self.max_step_length = 50.0
+        self.max_step_length = 80.0
         self.feet_lift = 10.0
         self.bezier_delta1 = numpy.matrix([[0], [0], [30]])        
         self.bezier_delta2 = numpy.matrix([[0], [0], [30]])
         #speed of gait in mm/sec
-        self.speed = 50.0
+        self.speed = 200.0
         
         
         #=======================================================================
@@ -83,12 +83,17 @@ class GaitEngine:
         #=======================================================================
         self.translate_only = False
         
-        #gait_direction of movement relative to global frame
+        #gait_translation of movement relative to global frame
         #Given as unit column vector
-        self.gait_direction = None
+        self.gait_translation = None
+        self.gait_rotation = None
+        self.gait_transform_matrix = None
 
-        #call set_gait_direction method to calculate initial move_vector
-        self.set_gait_direction(1.0, -0.5)
+        #call set_gait_direction method to calculate initial translation vector
+        self.set_gait_direction(0.0, 0.0)
+        #Call set_gait_rotation method to calculate initial rotation vector
+        self.set_gait_rotation(-0.0)
+        
         
         #time to complete one cycle. 
         #A cycle is the time it takes to take one step.
@@ -175,13 +180,17 @@ class GaitEngine:
         This method calculates all incremental positions for the tripod gait.
         """
         t_norm = float(self.t_cycle) / float(self.total_cycle_time)
+        
         #first calculate new foot placements for free feet
         for foot in self.free_feet:
+            if self.feet_pos[foot].all() == self.feet_dest[foot].all():
+                continue
             self.feet_pos[foot] = self.bezier(self.feet_start[foot],
                                               self.feet_start[foot] + self.bezier_delta1,
                                               self.feet_dest[foot] + self.bezier_delta2,
                                               self.feet_dest[foot],
                                               self.t_cycle, self.total_cycle_time)
+            
         #calculate new body position. Linear interpolation.
         self.body_pos = self.body_start + (self.body_dest - self.body_start) * t_norm
         #calculate body rotation. Linear interpolation.
@@ -193,33 +202,14 @@ class GaitEngine:
         """
         
         self.ground_feet, self.free_feet = self.free_feet, self.ground_feet
-        
-        #calculate gait yaw (how much the next step should rotate the robot).
-        if self.gait_direction[0] < 0:
-            gait_yaw = degrees(atan2(-self.gait_direction[1],-self.gait_direction[0]))
-        else:
-            gait_yaw = degrees(atan2(self.gait_direction[1],self.gait_direction[0]))
-        self.logger.info('Gait Yaw: %f' % gait_yaw)
-        
         if self.cycle == 0:
-            translate_vector = self.gait_direction * self.__step_length * (numpy.linalg.norm(self.gait_direction[0]) / 2.0)
-            t_matrix = kinematics.getTMatrix(translate_vector, (0, 0, gait_yaw / 4.0))
-            self.logger.info('gait T Matrix\n%s', t_matrix)
-            #set start and destination positions for free feet
-            #TODO: implement turning gait.
             for foot in self.free_feet:
                 self.feet_start[foot] = self.feet_pos[foot]
-                self.feet_dest[foot] = (t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
-                
+                self.feet_dest[foot] = (kinematics.get_t_matrix(self.gait_translation / 2, self.gait_rotation / 2) * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
         else:
-            translate_vector = self.gait_direction * self.__step_length * numpy.linalg.norm(self.gait_direction[0])
-            t_matrix = kinematics.getTMatrix(translate_vector, (0, 0, gait_yaw / 2.0))
-            self.logger.info('gait T Matrix\n%s', t_matrix)
-            #set start and destination positions for free feet
-            #TODO: implement turning gait.
             for foot in self.free_feet:
                 self.feet_start[foot] = self.feet_pos[foot]
-                self.feet_dest[foot] = (t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
+                self.feet_dest[foot] = (self.gait_transform_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
               
         
         self.body_start = self.body_pos
@@ -232,9 +222,8 @@ class GaitEngine:
                                         self.feet_pos[self.ground_feet[2]])
         
         self.body_dest = self.body_offset + ground_incenter + (free_dest_incenter - ground_incenter) / 2.0 
-        self.logger.info("ground incenter:\n%s\nfree incenter\n%s\nbody_dest:\n%s",ground_incenter, free_dest_incenter, self.body_dest)
         self.body_rot_start = self.body_rot
-        self.body_rot_dest = self.body_rot_start + numpy.matrix([[0], [0], [gait_yaw / 4.0]])
+        self.body_rot_dest = self.body_rot_start + self.gait_rotation / 2.0
             
             
     
@@ -247,7 +236,7 @@ class GaitEngine:
         except:
             raise TypeError('Input must be float or be valid argument for float()')
         
-        self.__step_length = min(self.speed / 2.0, self.max_step_length)
+        self.__step_length = min(self.speed / 3.0, self.max_step_length)
         
         self.feet_lift = max(10.0, min(self.__step_length / 10.0, 30.0))
         
@@ -260,19 +249,35 @@ class GaitEngine:
         
     def set_gait_direction(self, x, y):
         """
-        Method that sets the movement gait_direction of the gait.
-        input must be given as unit gait_direction column vector in the global frame
+        Method that sets the movement gait_translation of the gait.
+        input must be given as unit gait_translation column vector in the global frame
         """
         
         #convert input tuple to numpy matrix
-        self.gait_direction = numpy.matrix([[float(x)],
+        self.gait_translation = numpy.matrix([[float(x)],
                                        [float(y)],
                                        [0]
                                        ])
         
-        #make sure gait_direction vector is normalized
-        self.gait_direction = self.gait_direction / numpy.linalg.norm(self.gait_direction)
-    
+        #make sure gait_translation vector is normalized
+        if not numpy.linalg.norm(self.gait_translation) == 0:
+            self.gait_translation = (self.gait_translation / numpy.linalg.norm(self.gait_translation) ) * self.__step_length
+        if self.gait_rotation is None:
+            self.gait_transform_matrix = kinematics.get_t_matrix(self.gait_translation, numpy.matrix([[0], [0], [0]]))
+        else:
+            self.gait_transform_matrix = kinematics.get_t_matrix(self.gait_translation, self.gait_rotation)
+        
+    def set_gait_rotation(self, yaw):
+        """
+        Method that sets the gait_rotation of the gait.
+        input must be given as angles of rotation in degrees
+        """
+        #convert input to rotation angle tuple. (roll, pitch, yaw)
+        self.gait_rotation = numpy.matrix([[0], [0], [float(yaw)]])
+        if self.gait_translation is None:
+            self.gait_transform_matrix = kinematics.get_t_matrix(numpy.matrix([[0], [0], [0], [1]]), self.gait_rotation)
+        else:
+            self.gait_transform_matrix = kinematics.get_t_matrix(self.gait_translation, self.gait_rotation)
     
     def bezier(self, p0, p1, p2, p3, t, t_total):
         t_norm = float(t) / float(t_total)
@@ -296,7 +301,6 @@ class GaitEngine:
         
         incenter = (triangle * sides) / (a + b + c)
         
-        self.logger.info("incenter \n%s",incenter)
         return incenter
         
         

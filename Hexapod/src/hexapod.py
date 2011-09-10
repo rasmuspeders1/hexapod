@@ -140,7 +140,6 @@ class Hexapod:
         
         #update gait engine every controller period
         self.gait_engine.update()
-        
         #place body
         self.body.set_pos(self.gait_engine.get_body_position())
         self.body.set_rotation(self.gait_engine.get_body_rotation())
@@ -170,7 +169,6 @@ if __name__ == '__main__':
     
     try:
         hexapod.start()
-        
         raw_input()
         hexapod.stop()
         
