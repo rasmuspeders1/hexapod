@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 
-import logging
-import time
 import sys
 import maestro
 from kinematics import *
@@ -156,22 +154,3 @@ class Hexapod:
             
         return self.servo_positions
         
-        
-
-#define script behaviour if run as main
-if __name__ == '__main__':
-    hexapod = Hexapod()
-
-    #Controller = HexController.HexController()
-    #Controller.start()
-    print('Press "CTRL-C" to exit.\n')
-    hexapod.controller.go_home_all()
-    
-    try:
-        hexapod.start()
-        raw_input()
-        hexapod.stop()
-        
-    except KeyboardInterrupt:
-        logging.info('Received Keyboard Interrupt. Exiting.')
-        hexapod.stop()
