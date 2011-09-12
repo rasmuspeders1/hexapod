@@ -139,7 +139,7 @@ class Body:
 
         TMatrix12 = -cos(rad(self.roll))*sin(rad(self.yaw)) + cos(rad(self.yaw))*sin(rad(self.roll))*sin(rad(self.pitch))
         TMatrix22 = cos(rad(self.roll))*cos(rad(self.yaw)) + sin(rad(self.roll))*sin(rad(self.pitch))*sin(rad(self.yaw))
-        TMatrix32 = cos(rad(self.pitch))*sin(rad(self.yaw))
+        TMatrix32 = cos(rad(self.pitch))*sin(rad(self.roll))
 
         TMatrix13 = sin(rad(self.roll))*sin(rad(self.yaw)) + cos(rad(self.roll))*cos(rad(self.yaw))*sin(rad(self.pitch))
         TMatrix23 = -cos(rad(self.yaw))*sin(rad(self.roll)) + cos(rad(self.roll))*sin(rad(self.pitch))*sin(rad(self.yaw))
@@ -160,7 +160,7 @@ class Body:
                             ]
                            )
 
-    def getInverseTMatrix(self):
+    def get_i_t_matrix(self):
 
         rMatrix = self.getRMatrix()
         
@@ -227,7 +227,7 @@ class Link:
                             ]
                            )
 
-    def getInverseTMatrix(self):
+    def get_i_t_matrix(self):
 
         rMatrix = self.getRMatrix()
         
@@ -307,7 +307,7 @@ class Limb:
         
         #Input coordinates are given in body frame coordinates
         #Transform coordinates to link0 frame
-        link0Coords = self.link0.getInverseTMatrix() * self.body.getInverseTMatrix () * pos
+        link0Coords = self.link0.get_i_t_matrix() * self.body.get_i_t_matrix () * pos
         
         self.logger.debug('Endpoint Positions in Link0 Coords: (%.2f,%.2f,%.2f)'%(link0Coords[0],link0Coords[1],link0Coords[2]))
         

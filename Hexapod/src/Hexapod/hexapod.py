@@ -1,9 +1,9 @@
-#! /usr/bin/env python
+
 
 import sys
-import maestro
-from kinematics import *
-from gaitengine import *
+from . import maestro
+from .kinematics import *
+from .gaitengine import *
 
 
 class Hexapod:
@@ -98,8 +98,6 @@ class Hexapod:
         #Init maestro control
         #First init servo position object to input to maestro controller
         self.controller = maestro.Maestro(get_pos = self.get_positions)
-        #set as daemon. this means the controller thread dies with main python
-        self.controller.daemon = True
            
         #Update center offsets in controller
         for limb in self.limbs.values():
@@ -108,7 +106,7 @@ class Hexapod:
                     self.controller.centerOffsets[link.servoAddr] = link.centerOffset
         
 
-        self.gait_engine = GaitEngine()        
+        self.gait_engine = GaitEngine(self)        
 
         self.hexapodLogger.info('Hexapod Initialized.')
 

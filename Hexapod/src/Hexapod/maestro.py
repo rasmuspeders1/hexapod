@@ -124,13 +124,16 @@ class Maestro(threading.Thread):
             self.frequencyHist.append(self.frequency)
             if len(self.frequencyHist) > 1000:
                 del self.frequencyHist[0]
+                
+        self.started = False
             
 
     def stop(self):
         self.maestroLogger.info('Maestro servo controller interface stopping.')
-        self.go_home_all()
         self.stopEvent.set()
-        time.sleep(0.1)
+        while self.started:
+            time.sleep(0.1)
+        self.go_home_all()
         self.join()
         self.maestroLogger.info('Maestro servo controller interface stopped.')
     
