@@ -209,16 +209,16 @@ class GaitEngine:
         """
         cycle method for tripod gait
         """
-        self.logger.info('Cycle: %d', self.cycle)
+        #self.logger.info('Cycle: %d', self.cycle)
         self.ground_feet, self.free_feet = self.free_feet, self.ground_feet              
         
         if (self.gait_transform_matrix != self.gait_transform_matrix_new).any() and self.cycle % 2 == 0:
             self.gait_transform_matrix = self.gait_transform_matrix_new
             
         cycle_gait_t_matrix = self.gait_transform_matrix
-        self.logger.info('Gait T Matrix:\n%s\nNew Gait T Matrix:\n%s', self.gait_transform_matrix, self.gait_transform_matrix_new)
+        #self.logger.info('Gait T Matrix:\n%s\nNew Gait T Matrix:\n%s', self.gait_transform_matrix, self.gait_transform_matrix_new)
         
-        self.logger.info('Gait T Matrix:\n%s', cycle_gait_t_matrix)
+        #self.logger.info('Gait T Matrix:\n%s', cycle_gait_t_matrix)
         
         if self.cycle == 0:
             for foot in self.free_feet:
@@ -265,9 +265,17 @@ class GaitEngine:
         self.bezier_delta1 = numpy.matrix([[0], [0], [self.feet_lift]])
         self.bezier_delta2 = numpy.matrix([[0], [0], [self.feet_lift]])  
         
-        
-        self.total_cycle_time = self.__step_length / self.speed 
-
+        if self.speed != 0:
+            self.total_cycle_time = self.__step_length / self.speed
+             
+    def set_translation(self, x, y):
+        '''
+        Method that sets the overall gait translation
+        input is a directional vector with speed determined by its length,
+        which must be between 0 and 1
+        '''
+        self.set_gait_direction(x, y)
+        self.set_speed((x**2 + y**2)**0.5 * 100)
         
     def set_gait_direction(self, x, y):
         """

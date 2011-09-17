@@ -4,3 +4,4 @@ from Hexapod.kinematics import Body
 from Hexapod.kinematics import Limb
 from Hexapod.kinematics import Link
 from Hexapod.gaitengine import GaitEngine
+from Hexapod.joystick import RobotInput
