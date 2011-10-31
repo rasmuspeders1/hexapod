@@ -204,6 +204,14 @@ class GaitEngine:
 
         #calculate body rotation. Linear interpolation.
         self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
+    
+    def spline(self, p0, p1, p2, p3, t, t_total):
+        '''
+        Method that calculates a position on a curve interpolated between 4 points.
+        '''
+        t_norm = t / t_total
+        
+        return 
             
     def start_next_tripod_cycle(self):
         """
