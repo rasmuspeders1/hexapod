@@ -72,9 +72,9 @@ class GaitEngine:
         #average length of steps in mm
         self.__step_length = 50.0
         self.max_step_length = 60.0
-        self.feet_lift = 10.0
-        self.bezier_delta1 = numpy.matrix([[0], [0], [30]])        
-        self.bezier_delta2 = numpy.matrix([[0], [0], [30]])
+        self.foot_lift = 10.0
+        self.bezier_delta1 = numpy.matrix([[0], [10], [30]])        
+        self.bezier_delta2 = numpy.matrix([[0], [-10], [30]])
         #speed of gait in mm/sec
         self.speed = 200.0
         
@@ -179,7 +179,6 @@ class GaitEngine:
         
         self.gait_update_methods[self.gait_type]()
         #TODO: incorporate user controlled relative body movement.
-
     
     def tripod_update(self):
         """
@@ -198,20 +197,45 @@ class GaitEngine:
                                               self.feet_dest[foot] + self.bezier_delta2,
                                               self.feet_dest[foot],
                                               self.t_cycle, self.total_cycle_time)
-            
-        #calculate new body position. Linear interpolation.
-        self.body_pos = self.body_start + (self.body_dest - self.body_start) * t_norm
+             
+
+
+        #TODO: fix body bobbing up and down.
+        free_incenter = self.incenter(self.feet_pos[self.free_feet[0]],
+                                      self.feet_pos[self.free_feet[1]],
+                                      self.feet_pos[self.free_feet[2]]) 
+        
+        ground_incenter = self.incenter(self.feet_pos[self.ground_feet[0]],
+                                        self.feet_pos[self.ground_feet[1]],
+                                        self.feet_pos[self.ground_feet[2]])
+        
+        self.body_pos = self.body_pos_offset + ground_incenter + (free_incenter - ground_incenter) / 2.0
 
         #calculate body rotation. Linear interpolation.
         self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
     
+    def get_spline_via(self, start, destination):
+        '''
+        Method that calculates an appropriate via point for the foot spline 
+        trajectory.
+        '''
+        #Get position halfway between start and destination
+        p_half = start + (destination - start) * 0.5
+        via = p_half + numpy.matrix([[0], [0], [self.foot_lift]])
+        self.logger.info('Start:\n%s\nDest:\n%s\nVia:\n%s',start, destination, via)
+
+        return via     
+    
     def spline(self, p0, p1, p2, p3, t, t_total):
         '''
         Method that calculates a position on a curve interpolated between 4 points.
+        Takes numpy matrices as input.
         '''
-        t_norm = t / t_total
+        t_norm = (t / t_total)
+
+        pos = 0.5*( (2*p1) + (-p0+p2)*t_norm + (2*p0-5*p1+4*p2-p3)*(t_norm**2) + (-p0+3*p1-3*p2+p3)*(t_norm**3))
         
-        return 
+        return pos
             
     def start_next_tripod_cycle(self):
         """
@@ -245,15 +269,7 @@ class GaitEngine:
             self.body_rot_dest = self.body_rot_start + self.gait_rotation / 2.0
         
         self.body_start = self.body_pos
-        free_dest_incenter = self.incenter(self.feet_dest[self.free_feet[0]],
-                                      self.feet_dest[self.free_feet[1]],
-                                      self.feet_dest[self.free_feet[2]]) 
         
-        ground_incenter = self.incenter(self.feet_pos[self.ground_feet[0]],
-                                        self.feet_pos[self.ground_feet[1]],
-                                        self.feet_pos[self.ground_feet[2]])
-        
-        self.body_dest = self.body_pos_offset + ground_incenter + (free_dest_incenter - ground_incenter) / 2.0
         
         
             
@@ -268,10 +284,10 @@ class GaitEngine:
         
         self.__step_length = min(self.speed / 2.0, self.max_step_length)
         
-        self.feet_lift = max(10.0, min(self.__step_length / 10.0, 30.0))
+        self.foot_lift = max(10.0, min(self.__step_length / 10.0, 30.0))
         
-        self.bezier_delta1 = numpy.matrix([[0], [0], [self.feet_lift]])
-        self.bezier_delta2 = numpy.matrix([[0], [0], [self.feet_lift]])  
+        self.bezier_delta1 = numpy.matrix([[0], [0], [self.foot_lift]])
+        self.bezier_delta2 = numpy.matrix([[0], [0], [self.foot_lift]])  
         
         if self.speed != 0:
             self.total_cycle_time = self.__step_length / self.speed

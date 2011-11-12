@@ -6,7 +6,7 @@ import time
 if __name__ == '__main__':
     hex = Hexapod.Hexapod()
     
-    js = Hexapod.RobotInput()
+    js = Hexapod.RobotInput(0.1)
     js.start()
     
     try:

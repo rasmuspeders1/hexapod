@@ -14,8 +14,9 @@ class RobotInput(threading.Thread):
     Class to handle joystick input and translate it to something more useful 
     for robot control.
     '''
-    def __init__(self):
+    def __init__(self, threshold = 0):
         self.logger = logging.getLogger('Joystick')
+        self.threshold = threshold
         pygame.init()
         self.js_list = []
         if pygame.joystick.get_count() == 0:
@@ -44,16 +45,22 @@ class RobotInput(threading.Thread):
         if event.type == pygame.JOYAXISMOTION:
             #build 2D vector of input
             if event.dict['axis'] == 0:
-                self.x = -float(event.dict['value'])
-                self.logger.info('Translation: (%f, %f)', self.x, self.y)
+                new_x = -float(event.dict['value'])
+                if abs(new_x - self.x) > self.threshold:
+                    self.x = new_x
+                    self.logger.info('Translation: (%f, %f)', self.x, self.y)
             
             if event.dict['axis'] == 1:
-                self.y = -event.dict['value']
-                self.logger.info('Translation: (%f, %f)', self.x, self.y)
+                new_y = -float(event.dict['value'])
+                if abs(new_y - self.y) > self.threshold:
+                    self.y = new_y
+                    self.logger.info('Translation: (%f, %f)', self.x, self.y)
             
             if event.dict['axis'] == 2:
-                self.yaw = event.dict['value']
-                self.logger.info('Yaw: %f',self.yaw)
+                new_yaw = event.dict['value']
+                if abs(new_yaw - self.yaw) > self.threshold:
+                    self.yaw = new_yaw 
+                    self.logger.info('Yaw: %f',self.yaw)
                 
                 
             
