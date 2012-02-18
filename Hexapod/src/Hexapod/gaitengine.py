@@ -231,9 +231,7 @@ class GaitEngine:
         left_feet_yaw =   degrees(atan2(left_dir_vec[1], left_dir_vec[0]))
         right_dir_vec = (self.feet_pos['rf'] - self.feet_pos['rb'])
         right_feet_yaw =   degrees(atan2(right_dir_vec[1], right_dir_vec[0]))
-        self.logger.info('angle: %s', left_feet_yaw)
         body_yaw = (right_feet_yaw + left_feet_yaw)/2
-        self.logger.info('body yaw: %s', body_yaw)
         self.body_rot[2] = body_yaw
         
         #body_yaw = 
