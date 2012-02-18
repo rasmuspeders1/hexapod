@@ -33,9 +33,21 @@ class RobotInput(threading.Thread):
         threading.Thread.__init__(self)
         self.x = 0.0
         self.y = 0.0
+        
+        # Body relative offset
+        self.body_x = 0.0
+        self.body_y = 0.0
         self.body_z = 0.0
+        self.body_offset_lock = False
+        
+        
+        # Robot yaw angle
         self.yaw = 0.0
-        self.body_z_lock = False
+        
+        # Gripper
+        self.grip = 0.0
+        self.gripper_angle_delta = 0.0
+        self.gripper_lock = False
         
         
     def handle_js_event(self, event):
@@ -44,8 +56,35 @@ class RobotInput(threading.Thread):
         '''
         #self.logger.info('Got pygame event %s', event.dict)
         if event.type == pygame.JOYBUTTONDOWN:
+            # Cross
             if event.dict['button'] == 14:
-                self.body_z_lock = not self.body_z_lock
+                self.logger.debug('Locked body Z offset to: %d', self.body_z)
+                self.body_offset_lock = not self.body_offset_lock
+
+            # Square
+            if event.dict['button'] == 15:
+                self.logger.debug('Locked gripper to: %d', self.grip)
+                self.gripper_lock = not self.gripper_lock
+            
+            # L1
+            if event.dict['button'] == 10:
+                self.logger.debug('Turning gripper left')
+                self.gripper_angle_delta += 1.0
+            
+            # R1
+            if event.dict['button'] == 11:
+                self.logger.debug('Turning gripper right')
+                self.gripper_angle_delta -= 1.0
+        
+        if event.type == pygame.JOYBUTTONUP:
+            # L1
+            if event.dict['button'] == 10:
+                self.logger.debug('No longer turning gripper left')
+                self.gripper_angle_delta -= 1.0
+                
+            if event.dict['button'] == 11:
+                self.logger.debug('No longer turning gripper right')
+                self.gripper_angle_delta += 1.0
             
         if event.type == pygame.JOYAXISMOTION:
             if event.dict['axis'] == 0:
@@ -66,13 +105,21 @@ class RobotInput(threading.Thread):
                     self.yaw = new_yaw 
                     self.logger.info('Yaw: %f', self.yaw)
             
+            # Body Z offset
             if event.dict['axis'] == 13:
-                if not self.body_z_lock:
+                if not self.body_offset_lock:
                     new_body_z = event.dict['value']
                     if abs(new_body_z - self.body_z) > self.threshold:
                         self.body_z = new_body_z 
                         self.logger.info('Body Z offset: %f', self.body_z)
             
+            #Gripper grap
+            if event.dict['axis'] == 12:
+                if not self.gripper_lock:
+                    new_grip = event.dict['value']
+                    if abs(new_grip - self.grip) > self.threshold:
+                        self.grip = new_grip
+                        self.logger.info('Grip: %f', self.grip)            
             
     def run(self):
         '''

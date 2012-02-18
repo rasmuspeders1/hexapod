@@ -93,6 +93,13 @@ class Hexapod:
 
         self.rbLimb = Limb(self.body, rbLink0, rbLink1, rbLink2, rbLink3, 'Right Back Limb'.ljust(18))
         self.limbs['rb'] = self.rbLimb
+        
+        self.gripper_angle_servo_addr = 18
+        self.gripper_servo_addr = 19
+        self.gripper_angle_offset = 81.0
+        self.grip_offset = 90.0
+        self.gripper_angle = 0.0
+        self.grip = 0.0
 
         
         #Init maestro control
@@ -128,7 +135,13 @@ class Hexapod:
         self.controller.start()
         while not self.controller.started:
             time.sleep(0.1)
-            
+    
+    def set_gripper_angle(self, angle):
+        self.gripper_angle = max(-45.0 , min(45,float(angle)))
+        
+    def set_grip(self, grip):
+        self.grip = max(-10.0 , min(70,float(grip)))
+        
     def get_positions(self):
         """
         Method that returns the servo positions in the correct format for the controller object.
@@ -141,7 +154,6 @@ class Hexapod:
         self.body.set_rotation(self.gait_engine.get_body_rotation())
         
         #update positions with values from gait engine
-        #TODO: UPDATE POSITIONS
         feet_positions = self.gait_engine.get_feet_positions()
         
         for foot, limb in self.limbs.items():
@@ -149,6 +161,9 @@ class Hexapod:
             self.servo_positions[limb.link1.servoAddr] = limb.link1.theta
             self.servo_positions[limb.link2.servoAddr] = limb.link2.theta
             self.servo_positions[limb.link3.servoAddr] = limb.link3.theta
+            
+        self.servo_positions[self.gripper_angle_servo_addr] = self.gripper_angle + self.gripper_angle_offset
+        self.servo_positions[self.gripper_servo_addr] = self.grip + self.grip_offset
             
         return self.servo_positions
         

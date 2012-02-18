@@ -46,28 +46,23 @@ class GaitEngine:
         self.last_update = 0.0
         
         #maximum positional update difference in millimetres
-        self.max_pos_step_size = 5.0
+        self.max_pos_step_size = 2.0
         
         #=======================================================================
-        # Relative body movement vars. 
-        # body_pos. body_start and body_dest are used for moving the 
-        # body during the gait.
-        # body speed determines the speed of the directly user controlled body
-        # motion.
+        # Body position and rotation variables
         #=======================================================================
-        #self.body_speed = 0
-        
-        #self.body_direction = numpy.matrix([[0], [0], [0]])
         
         
-        #current position of body in global frame
+        # Current position of body in global frame
         self.body_pos = numpy.matrix([[0.0], [0.0], [0.0]])
-        #desired position destination of body at the current time.
+        
+        # Desired position destination of body at the current time.
+        # This is used if the desired body position can not be reached within 
+        # one cycle.  
         self.body_dest = numpy.matrix([[0.0], [0.0], [0.0]])
         
+        #current 
         self.body_rot = numpy.matrix([[0.0], [0.0], [0.0]])
-        self.body_rot_start = numpy.matrix([[0.0], [0.0], [0.0]])
-        self.body_rot_dest = numpy.matrix([[0.0], [0.0], [0.0]])
         
         #free height under the robot
         self.body_pos_offset = numpy.matrix([[0.0], [0.0], [15.0]])
@@ -77,24 +72,22 @@ class GaitEngine:
         #=======================================================================
         #average length of steps in mm
         self.__step_length = 50.0
+        
+        #maximal step lengt in mm
         self.max_step_length = 60.0
+        
+        #deprecated bezier based foot trajectory variables
+        #TODO: remove when potential field is implemented
         self.foot_lift = 10.0
         self.bezier_delta1 = numpy.matrix([[0.0], [10.0], [30.0]])        
         self.bezier_delta2 = numpy.matrix([[0.0], [-10.0], [30.0]])
-        #speed of gait in mm/sec
+        
+        #desired speed of gait in mm/sec
         self.speed = 200.0
         
         
-        #=======================================================================
-        # Translate only flag. 
-        # When this is true the robot will only translate in the gait direction.
-        # When this is false the robot will turn to head in the the gait 
-        # direction.
-        #=======================================================================
-        self.translate_only = False
-        
-        #gait_translation of movement relative to global frame
-        #Given as unit column vector
+        # Gait_translation of movement relative to global frame
+        # given as unit column vector
         self.gait_translation = None
         self.gait_rotation = None
         self.gait_max_rotation = numpy.matrix([[0.0], [0.0], [30.0]])
@@ -135,6 +128,17 @@ class GaitEngine:
         self.feet_start = {}
         
         self.set_speed(80.0)
+        
+        #=======================================================================
+        # Virtual Potential Field variables
+        # Feet end points are by convention positively charged
+        #=======================================================================
+        
+        #List of positions for positive charges
+        self.positive_charges = []
+        
+        #list of positions for negative charges 
+        self.negative_charges = []
 
         
     def get_feet_positions(self):
@@ -204,9 +208,10 @@ class GaitEngine:
                                              self.feet_dest[foot],
                                              self.t_cycle, self.total_cycle_time)
             
+            #TODO: implement virtual potential field path planning for foot trajectories.
+            
         #calculate and set body position and rotation from feet positions.
         self.__set_body_pos_rot_from_feet_pos()
-        #self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
 
     
     def __set_body_pos_rot_from_feet_pos(self):
@@ -228,10 +233,11 @@ class GaitEngine:
         #Calculate body rotation relative to feet positions
         #The yaw of the body must be in line with the polygon spanned by the feet positions.
         left_dir_vec = (self.feet_pos['lf'] - self.feet_pos['lb'])
-        left_feet_yaw =   degrees(atan2(left_dir_vec[1], left_dir_vec[0]))
         right_dir_vec = (self.feet_pos['rf'] - self.feet_pos['rb'])
-        right_feet_yaw =   degrees(atan2(right_dir_vec[1], right_dir_vec[0]))
-        body_yaw = (right_feet_yaw + left_feet_yaw)/2
+        mean_dir_vec = numpy.mean(numpy.hstack([left_dir_vec, right_dir_vec]),1)
+
+        body_yaw = degrees(atan2(mean_dir_vec[1], mean_dir_vec[0]))
+            
         self.body_rot[2] = body_yaw
         
         #body_yaw = 
@@ -279,22 +285,11 @@ class GaitEngine:
             for foot in self.free_feet:
                 self.feet_start[foot] = self.feet_pos[foot]
                 self.feet_dest[foot] = (self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation / 2, self.gait_rotation / 2) * self.hexapod.body.get_i_t_matrix() *  numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
-            
-            self.body_rot_start = self.body_rot
-            self.body_rot_dest = self.body_rot_start + self.gait_rotation / 4.0
-            
         else:
             for foot in self.free_feet:
                 self.feet_start[foot] = self.feet_pos[foot]
                 self.feet_dest[foot] = (cycle_gait_t_matrix * numpy.append(self.feet_start[foot], numpy.matrix([1]), axis = 0))[0:3]
 
-            self.body_rot_start = self.body_rot
-            self.body_rot_dest = self.body_rot_start + self.gait_rotation / 2.0
-        
-        self.body_start = self.body_pos
-        
-        
-        
             
     def set_speed(self, speed):
         """
@@ -340,7 +335,7 @@ class GaitEngine:
         if not numpy.linalg.norm(self.gait_translation) == 0:
             self.gait_translation = (self.gait_translation / numpy.linalg.norm(self.gait_translation) ) * self.__step_length
             
-        self.update_gait_t_matrix()
+        self.update_gait()
         
     def set_gait_rotation(self, yaw):
         """
@@ -358,25 +353,29 @@ class GaitEngine:
                 self.logger.warning('Gait rotation on axis %d reached minimum of %d degrees.', i, self.gait_min_rotation[i])
                 self.gait_rotation[i] = self.gait_min_rotation[i]
                 
-        self.update_gait_t_matrix()
+        self.update_gait()
     
-    def update_gait_t_matrix(self):
+    def update_gait(self):
         '''
-        Method that updates the gait transformation matrix with values from translation and rotation vectors.
+        Method that updates the gait with input from gait translation and rotation vectors.
+        Updates gait transformation matrix and places virtual potential field charges. 
         '''
         if self.gait_translation is None and self.gait_rotation is None:
             self.logger.error('Cannot update Gait Transformation matrix when both translation and rotations vectors are None.')
             return
+        
         
         if self.gait_translation is None:
             self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(numpy.matrix([[0.0], [0.0], [0.0], [1.0]]), self.gait_rotation) * self.hexapod.body.get_i_t_matrix()
         elif self.gait_rotation is None:
             self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, numpy.matrix([[0.0], [0.0], [0.0]])) * self.hexapod.body.get_i_t_matrix()
         else:
-            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, self.gait_rotation) * self.hexapod.body.get_i_t_matrix()
-            
+            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, self.gait_rotation) * self.hexapod.body.get_i_t_matrix()    
         if self.gait_transform_matrix is None:
             self.gait_transform_matrix = self.gait_transform_matrix_new
+            
+        # TODO: Place virtual potential field charges
+        
         
     def bezier(self, p0, p1, p2, p3, t, t_total):
         t_norm = float(t) / float(t_total)
