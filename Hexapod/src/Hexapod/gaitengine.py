@@ -24,6 +24,11 @@ class GaitEngine:
         #time of last update time
         self.last_update = time.time()
         
+        #helper unit vectors
+        
+        self.unit_row_x_vector = numpy.matrix([[1,0,0]])
+        self.unit_row_y_vector = numpy.matrix([[0,1,0]])
+        self.unit_row_z_vector = numpy.matrix([[0,0,1]])
         
         #type of gait to be generated
         self.gait_type = 'tripod'
@@ -40,6 +45,9 @@ class GaitEngine:
         #time of last call to update method.
         self.last_update = 0.0
         
+        #maximum positional update difference in millimetres
+        self.max_pos_step_size = 5.0
+        
         #=======================================================================
         # Relative body movement vars. 
         # body_pos. body_start and body_dest are used for moving the 
@@ -53,18 +61,16 @@ class GaitEngine:
         
         
         #current position of body in global frame
-        self.body_pos = numpy.matrix([[0], [0], [0]])
-        #destination of body in current gait cycle
-        self.body_dest = numpy.matrix([[0], [0], [0]])
-        #starting point for body in current gait cycle
-        self.body_start = numpy.matrix([[0], [0], [0]])
+        self.body_pos = numpy.matrix([[0.0], [0.0], [0.0]])
+        #desired position destination of body at the current time.
+        self.body_dest = numpy.matrix([[0.0], [0.0], [0.0]])
         
-        self.body_rot = numpy.matrix([[0], [0], [0]])
-        self.body_rot_start = numpy.matrix([[0], [0], [0]])
-        self.body_rot_dest = numpy.matrix([[0], [0], [0]])
+        self.body_rot = numpy.matrix([[0.0], [0.0], [0.0]])
+        self.body_rot_start = numpy.matrix([[0.0], [0.0], [0.0]])
+        self.body_rot_dest = numpy.matrix([[0.0], [0.0], [0.0]])
         
         #free height under the robot
-        self.body_pos_offset = numpy.matrix([[0], [0], [15]])
+        self.body_pos_offset = numpy.matrix([[0.0], [0.0], [15.0]])
         
         #=======================================================================
         # Gait vars. these determine speed, step length and lift height (shape)
@@ -73,8 +79,8 @@ class GaitEngine:
         self.__step_length = 50.0
         self.max_step_length = 60.0
         self.foot_lift = 10.0
-        self.bezier_delta1 = numpy.matrix([[0], [10], [30]])        
-        self.bezier_delta2 = numpy.matrix([[0], [-10], [30]])
+        self.bezier_delta1 = numpy.matrix([[0.0], [10.0], [30.0]])        
+        self.bezier_delta2 = numpy.matrix([[0.0], [-10.0], [30.0]])
         #speed of gait in mm/sec
         self.speed = 200.0
         
@@ -91,8 +97,8 @@ class GaitEngine:
         #Given as unit column vector
         self.gait_translation = None
         self.gait_rotation = None
-        self.gait_max_rotation = numpy.matrix([[0], [0], [30]])
-        self.gait_min_rotation = numpy.matrix([[0], [0], [-30]])
+        self.gait_max_rotation = numpy.matrix([[0.0], [0.0], [30.0]])
+        self.gait_min_rotation = numpy.matrix([[0.0], [0.0], [-30.0]])
         self.gait_transform_matrix = None
         self.gait_transform_matrix_new = None
 
@@ -115,12 +121,12 @@ class GaitEngine:
         #dictionary of current feet positions in global frame coordinates.
         #values here must be sane initial feet positions, relative to the body 
         #coordinates. whixh should be 0,0,0
-        self.feet_pos = {'lf':numpy.matrix([[  85], [  75], [   0]]),
-                         'lm':numpy.matrix([[   0], [  90], [   0]]),
-                         'lb':numpy.matrix([[ -85], [  75], [   0]]),
-                         'rf':numpy.matrix([[  85], [ -75], [   0]]),
-                         'rm':numpy.matrix([[   0], [ -90], [   0]]),
-                         'rb':numpy.matrix([[ -85], [ -75], [   0]])
+        self.feet_pos = {'lf':numpy.matrix([[  85.0], [  75.0], [   0.0]]),
+                         'lm':numpy.matrix([[   0.0], [  90.0], [   0.0]]),
+                         'lb':numpy.matrix([[ -85.0], [  75.0], [   0.0]]),
+                         'rf':numpy.matrix([[  85.0], [ -75.0], [   0.0]]),
+                         'rm':numpy.matrix([[   0.0], [ -90.0], [   0.0]]),
+                         'rb':numpy.matrix([[ -85.0], [ -75.0], [   0.0]])
                         }
         #destination of feet for current gait cycle
         self.feet_dest = {}
@@ -128,7 +134,7 @@ class GaitEngine:
         #starting point of feet for current gait cycle
         self.feet_start = {}
         
-        self.set_speed(80)
+        self.set_speed(80.0)
 
         
     def get_feet_positions(self):
@@ -170,8 +176,6 @@ class GaitEngine:
             if self.cycle > 0:
                 for foot in self.free_feet:
                     self.feet_pos[foot] = self.feet_dest[foot]
-                    self.body_pos = self.body_dest
-                    self.body_rot = self.body_rot_dest
             
             self.gait_cycle_methods[self.gait_type]()
     
@@ -189,30 +193,51 @@ class GaitEngine:
         
         #first calculate new foot placements for free feet
         for foot in self.free_feet:
+            #If foot has already reached its destination do not update position for this foot.
             if (self.feet_start[foot] == self.feet_dest[foot]).all():
                 continue
 
+
             self.feet_pos[foot] = self.bezier(self.feet_start[foot],
-                                              self.feet_start[foot] + self.bezier_delta1,
-                                              self.feet_dest[foot] + self.bezier_delta2,
-                                              self.feet_dest[foot],
-                                              self.t_cycle, self.total_cycle_time)
-             
+                                             self.feet_start[foot] + self.bezier_delta1,
+                                             self.feet_dest[foot] + self.bezier_delta2,
+                                             self.feet_dest[foot],
+                                             self.t_cycle, self.total_cycle_time)
+            
+        #calculate and set body position and rotation from feet positions.
+        self.__set_body_pos_rot_from_feet_pos()
+        #self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
 
-
+    
+    def __set_body_pos_rot_from_feet_pos(self):
+        '''
+        Method that calculates appropriate body position and rotation from the postion of the feet.
+        '''
+        #calculate body position relative to feet positions
         #TODO: fix body bobbing up and down.
-        free_incenter = self.incenter(self.feet_pos[self.free_feet[0]],
-                                      self.feet_pos[self.free_feet[1]],
-                                      self.feet_pos[self.free_feet[2]]) 
+        self.body_dest = numpy.mean( numpy.hstack([f for f in self.feet_pos.values()]) ,1)
+        self.body_dest[2] = numpy.mean( numpy.hstack([self.feet_pos[p] for p in self.ground_feet]) ,1)[2]
+        self.body_dest += self.body_pos_offset
         
-        ground_incenter = self.incenter(self.feet_pos[self.ground_feet[0]],
-                                        self.feet_pos[self.ground_feet[1]],
-                                        self.feet_pos[self.ground_feet[2]])
+        if numpy.linalg.norm(self.body_dest - self.body_pos) != 0.0:
+            body_move_vec = self.body_dest - self.body_pos
+            if numpy.linalg.norm(body_move_vec) > self.max_pos_step_size:
+                body_move_vec = self.max_pos_step_size * body_move_vec / numpy.linalg.norm(body_move_vec)
+            self.body_pos += body_move_vec
         
-        self.body_pos = self.body_pos_offset + ground_incenter + (free_incenter - ground_incenter) / 2.0
-
-        #calculate body rotation. Linear interpolation.
-        self.body_rot = self.body_rot_start + (self.body_rot_dest - self.body_rot_start) * t_norm
+        #Calculate body rotation relative to feet positions
+        #The yaw of the body must be in line with the polygon spanned by the feet positions.
+        left_dir_vec = (self.feet_pos['lf'] - self.feet_pos['lb'])
+        left_feet_yaw =   degrees(atan2(left_dir_vec[1], left_dir_vec[0]))
+        right_dir_vec = (self.feet_pos['rf'] - self.feet_pos['rb'])
+        right_feet_yaw =   degrees(atan2(right_dir_vec[1], right_dir_vec[0]))
+        self.logger.info('angle: %s', left_feet_yaw)
+        body_yaw = (right_feet_yaw + left_feet_yaw)/2
+        self.logger.info('body yaw: %s', body_yaw)
+        self.body_rot[2] = body_yaw
+        
+        #body_yaw = 
+        
     
     def get_spline_via(self, start, destination):
         '''
@@ -221,7 +246,7 @@ class GaitEngine:
         '''
         #Get position halfway between start and destination
         p_half = start + (destination - start) * 0.5
-        via = p_half + numpy.matrix([[0], [0], [self.foot_lift]])
+        via = p_half + numpy.matrix([[0.0], [0.0], [self.foot_lift]])
         self.logger.info('Start:\n%s\nDest:\n%s\nVia:\n%s',start, destination, via)
 
         return via     
@@ -286,8 +311,8 @@ class GaitEngine:
         
         self.foot_lift = max(10.0, min(self.__step_length / 10.0, 30.0))
         
-        self.bezier_delta1 = numpy.matrix([[0], [0], [self.foot_lift]])
-        self.bezier_delta2 = numpy.matrix([[0], [0], [self.foot_lift]])  
+        self.bezier_delta1 = numpy.matrix([[0.0], [0.0], [self.foot_lift]])
+        self.bezier_delta2 = numpy.matrix([[0.0], [0.0], [self.foot_lift]])  
         
         if self.speed != 0:
             self.total_cycle_time = self.__step_length / self.speed
@@ -299,7 +324,7 @@ class GaitEngine:
         which must be between 0 and 1
         '''
         self.set_gait_direction(x, y)
-        self.set_speed((x**2 + y**2)**0.5 * 100)
+        self.set_speed((x**2 + y**2)**0.5 * 100.0)
         
     def set_gait_direction(self, x, y):
         """
@@ -325,14 +350,14 @@ class GaitEngine:
         input must be given as angles of rotation in degrees
         """
         #convert input to rotation angle tuple. (roll, pitch, yaw)
-        self.gait_rotation = numpy.matrix([[0], [0], [float(yaw)]])
+        self.gait_rotation = numpy.matrix([[0.0], [0.0], [float(yaw)]])
         for i, v in enumerate(self.gait_rotation):
             if v > self.gait_max_rotation[i]:
                 self.logger.warning('Gait rotation on axis %d reached maximum of %d degrees.', i, self.gait_max_rotation[i])
                 self.gait_rotation[i] = self.gait_max_rotation[i]
                 
             if v < self.gait_min_rotation[i]:
-                self.logger.warning('Gait rotation on axis %d reached minimun of %d degrees.', i, self.gait_min_rotation[i])
+                self.logger.warning('Gait rotation on axis %d reached minimum of %d degrees.', i, self.gait_min_rotation[i])
                 self.gait_rotation[i] = self.gait_min_rotation[i]
                 
         self.update_gait_t_matrix()
@@ -346,9 +371,9 @@ class GaitEngine:
             return
         
         if self.gait_translation is None:
-            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(numpy.matrix([[0], [0], [0], [1]]), self.gait_rotation) * self.hexapod.body.get_i_t_matrix()
+            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(numpy.matrix([[0.0], [0.0], [0.0], [1.0]]), self.gait_rotation) * self.hexapod.body.get_i_t_matrix()
         elif self.gait_rotation is None:
-            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, numpy.matrix([[0], [0], [0]])) * self.hexapod.body.get_i_t_matrix()
+            self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, numpy.matrix([[0.0], [0.0], [0.0]])) * self.hexapod.body.get_i_t_matrix()
         else:
             self.gait_transform_matrix_new = self.hexapod.body.get_t_matrix() * kinematics.get_t_matrix(self.gait_translation, self.gait_rotation) * self.hexapod.body.get_i_t_matrix()
             

@@ -35,15 +35,19 @@ class RobotInput(threading.Thread):
         self.y = 0.0
         self.body_z = 0.0
         self.yaw = 0.0
+        self.body_z_lock = False
         
         
     def handle_js_event(self, event):
         '''
         Method to handle pygame events from the Joystick
         '''
-        self.logger.info('Got pygame event %s', event.dict)
+        #self.logger.info('Got pygame event %s', event.dict)
+        if event.type == pygame.JOYBUTTONDOWN:
+            if event.dict['button'] == 14:
+                self.body_z_lock = not self.body_z_lock
+            
         if event.type == pygame.JOYAXISMOTION:
-            #build 2D vector of input
             if event.dict['axis'] == 0:
                 new_x = -float(event.dict['value'])
                 if abs(new_x - self.x) > self.threshold:
@@ -60,9 +64,14 @@ class RobotInput(threading.Thread):
                 new_yaw = event.dict['value']
                 if abs(new_yaw - self.yaw) > self.threshold:
                     self.yaw = new_yaw 
-                    self.logger.info('Yaw: %f',self.yaw)
-                
-                
+                    self.logger.info('Yaw: %f', self.yaw)
+            
+            if event.dict['axis'] == 13:
+                if not self.body_z_lock:
+                    new_body_z = event.dict['value']
+                    if abs(new_body_z - self.body_z) > self.threshold:
+                        self.body_z = new_body_z 
+                        self.logger.info('Body Z offset: %f', self.body_z)
             
             
     def run(self):
