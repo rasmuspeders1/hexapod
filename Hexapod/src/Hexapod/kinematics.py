@@ -16,7 +16,7 @@ def get_t_matrix(translation, rotation):
     roll = float(rotation[0])
     pitch = float(rotation[1])
     yaw = float(rotation[2])
-    
+
     TMatrix11 = cos(rad(yaw)) * cos(rad(pitch))
     TMatrix21 = sin(rad(yaw)) * cos(rad(pitch))
     TMatrix31 = -sin(rad(pitch))
@@ -36,7 +36,7 @@ def get_t_matrix(translation, rotation):
     TMatrix24 = translation[1]
     TMatrix34 = translation[2]
     TMatrix44 = 1
-                     
+
     return numpy.matrix([
                          [TMatrix11, TMatrix12, TMatrix13, TMatrix14],
                          [TMatrix21, TMatrix22, TMatrix23, TMatrix24],
@@ -44,7 +44,7 @@ def get_t_matrix(translation, rotation):
                          [TMatrix41, TMatrix42, TMatrix43, TMatrix44]
                         ]
                        )
-   
+
 class InvalidIKInput(Exception):
     """
     Exception Class for Inverse kinematics methods of hexapod.Limb class 
@@ -72,7 +72,7 @@ class Body:
     Class that represents the body of the robot.
     Contains transformations matrices for body->global global->body coordinates.
     """
-    def __init__(self, name = 'Hexapod'):
+    def __init__(self, name='Hexapod'):
         self.name = name
         self.roll = 0
         self.pitch = 0
@@ -123,7 +123,7 @@ class Body:
         TMatrix24 = self.y
         TMatrix34 = self.z
         TMatrix44 = 1
-                         
+
         return numpy.matrix([
                              [TMatrix11, TMatrix12, TMatrix13, TMatrix14],
                              [TMatrix21, TMatrix22, TMatrix23, TMatrix24],
@@ -131,7 +131,7 @@ class Body:
                              [TMatrix41, TMatrix42, TMatrix43, TMatrix44]
                             ]
                            )
-        
+
     def getRMatrix(self):
         TMatrix11 = cos(rad(self.yaw)) * cos(rad(self.pitch))
         TMatrix21 = sin(rad(self.yaw)) * cos(rad(self.pitch))
@@ -163,15 +163,15 @@ class Body:
     def get_i_t_matrix(self):
 
         rMatrix = self.getRMatrix()
-        
+
         translationMatrix = self.getTranslationMatrix()
 
         iTMatrix = rMatrix.transpose()
-        
+
         matrix2 = -(rMatrix.transpose() * translationMatrix)
-        
-        iTMatrix = numpy.append(iTMatrix, matrix2, axis = 1)
-        iTMatrix = numpy.append(iTMatrix, numpy.matrix([0, 0, 0, 1]), axis = 0)
+
+        iTMatrix = numpy.append(iTMatrix, matrix2, axis=1)
+        iTMatrix = numpy.append(iTMatrix, numpy.matrix([0, 0, 0, 1]), axis=0)
 
         return iTMatrix
 
@@ -184,12 +184,12 @@ class Link:
                   a,
                   d,
                   theta,
-                  name = 'Robot Link',
-                  servoAddr = None,
-                  centerOffset = 0,
-                  mirrored = False
+                  name='Robot Link',
+                  servoAddr=None,
+                  centerOffset=0,
+                  mirrored=False
                 ):
-        
+
         """
         The Link class is instantiated with a set of 
         Denavit Hartenberg parameters, 
@@ -230,15 +230,15 @@ class Link:
     def get_i_t_matrix(self):
 
         rMatrix = self.getRMatrix()
-        
+
         translationMatrix = self.getTranslationMatrix()
 
         iTMatrix = rMatrix.transpose()
-        
+
         matrix2 = -(rMatrix.transpose() * translationMatrix)
-        
-        iTMatrix = numpy.append(iTMatrix, matrix2, axis = 1)
-        iTMatrix = numpy.append(iTMatrix, numpy.matrix([0, 0, 0, 1]), axis = 0)
+
+        iTMatrix = numpy.append(iTMatrix, matrix2, axis=1)
+        iTMatrix = numpy.append(iTMatrix, numpy.matrix([0, 0, 0, 1]), axis=0)
 
         return iTMatrix
 
@@ -254,14 +254,14 @@ class Limb:
     """
     Class that represents a robot limb with 3 degrees of freedom and with rotational links. 
     """
-    
+
     def __init__(self,
                  body,
                  link0,
                  link1,
                  link2,
                  link3,
-                 name = 'Robot Limb'
+                 name='Robot Limb'
                  ):
         """
         The robot limb class is instatiated with 4 link objects and a name.
@@ -277,10 +277,7 @@ class Limb:
         self.links = [self.link0, self.link1, self.link2, self.link3]
         self.name = name
         self.logger = logging.getLogger(name)
-        
-        
-    
-    
+
     def getEPPos(self):
         """
         method that returns a vector (numpy matrix) with the x,y,z coordinates of the limb endpoint in body coordinates.
@@ -300,21 +297,21 @@ class Limb:
         Method that calcultate the rotational joint angles for the leg endpoint to be placed in x,y,z coordinates relative to the body frame.
         Input coordinates must be given in milimeters relative to the body frame. Floats, integers and strings with either are acceptable input.
         """
-        pos = numpy.append(pos, numpy.matrix([[1]]), axis = 0)
+        pos = numpy.append(pos, numpy.matrix([[1]]), axis=0)
 
         #log inverse kinematic operation
         self.logger.debug('Calculating joint angles for leg endpoint position: (%.2f,%.2f,%.2f)' % (pos[0], pos[1], pos[2]))
-        
+
         #Input coordinates are given in body frame coordinates
         #Transform coordinates to link0 frame
         link0Coords = self.link0.get_i_t_matrix() * self.body.get_i_t_matrix () * pos
-        
+
         self.logger.debug('Endpoint Positions in Link0 Coords: (%.2f,%.2f,%.2f)' % (link0Coords[0], link0Coords[1], link0Coords[2]))
-        
+
         #length from link0 to link4
         a = math.sqrt(link0Coords[0] ** 2 + link0Coords[1] ** 2)
         self.logger.debug('a=%f' % a)
-        
+
         #Check that robot can reach point. eg. endpoint position  not without limb reach.
         if a > self.link1.a + self.link2.a + self.link3.a or a < 0:
             raise InvalidIKInput('Length from link0 to link3 is impossible!')

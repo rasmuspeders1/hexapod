@@ -138,6 +138,7 @@ class Hexapod:
         self.gripper_angle = max(-45.0, min(45, float(angle)))
 
     def set_grip(self, grip):
+        '''Method that sets the grip of the gripper'''
         self.grip = max(-10.0, min(70, float(grip)))
 
     def get_positions(self):

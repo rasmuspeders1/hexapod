@@ -13,7 +13,7 @@ class Maestro(threading.Thread):
     servo controller.
     The class uses the "Compact Protocol" as described in the Maestro manual.
     """
-    def __init__(self, get_pos, port = '/dev/ttyACM0', baudrate = 115200, updateFreq = 50, logInterval = 1):
+    def __init__(self, get_pos, port='/dev/ttyACM0', baudrate=115200, updateFreq=50, logInterval=1):
         self.maestroLogger = logging.getLogger('Maestro')
         self.logInterval = logInterval
         self.Positions = {}
@@ -114,7 +114,7 @@ class Maestro(threading.Thread):
                 self.maestroLogger.info('Average Update Frequency: %f' % (float(sum(self.frequencyHist)) / float(len(self.frequencyHist))))
 
             #update positionList from Position and centerOffset dictionaries
-            self.generate_position_list() 
+            self.generate_position_list()
             ServoPWList = [int(pos * self.d2pRatio + self.d2pOffset) for pos in self.PositionList]
             #send position command to servo controller
             self.set_group_pos(0, ServoPWList)
@@ -128,9 +128,9 @@ class Maestro(threading.Thread):
             self.frequencyHist.append(self.frequency)
             if len(self.frequencyHist) > 1000:
                 del self.frequencyHist[0]
-                
+
         self.started = False
-            
+
 
     def stop(self):
         self.maestroLogger.info('Maestro servo controller interface stopping.')
@@ -140,6 +140,6 @@ class Maestro(threading.Thread):
         self.go_home_all()
         self.join()
         self.maestroLogger.info('Maestro servo controller interface stopped.')
-    
+
 
 
