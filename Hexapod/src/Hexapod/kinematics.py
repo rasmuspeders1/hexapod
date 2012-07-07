@@ -221,25 +221,37 @@ class Link:
         self.mirrored = mirrored
 
     def get_t_matrix(self):
+        cos_theta = math.cos(math.radians(self.theta))
+        cos_alpha = math.cos(math.radians(self.alpha))
+        sin_theta = math.sin(math.radians(self.theta))
+        sin_alpha = math.sin(math.radians(self.alpha))
+
         return numpy.matrix([
-                             [ math.cos(math.radians(self.theta)), -math.sin(math.radians(self.theta)) * math.cos(math.radians(self.alpha)), math.sin(math.radians(self.theta)) * math.sin(math.radians(self.alpha)), self.a * math.cos(math.radians(self.theta))],
-                             [ math.sin(math.radians(self.theta)), math.cos(math.radians(self.theta)) * math.cos(math.radians(self.alpha)), -math.cos(math.radians(self.theta)) * math.sin(math.radians(self.alpha)), self.a * math.sin(math.radians(self.theta))],
-                             [                    0, math.sin(math.radians(self.alpha)), math.cos(math.radians(self.alpha)), self.d],
+                             [ cos_theta, -sin_theta * cos_alpha, sin_theta * sin_alpha, self.a * cos_theta],
+                             [ sin_theta, cos_theta * cos_alpha, -cos_theta * sin_alpha, self.a * sin_theta],
+                             [                    0, sin_alpha, cos_alpha, self.d],
                              [                    0, 0, 0, 1]
                             ]
                            )
     def getRMatrix(self):
+        cos_theta = math.cos(math.radians(self.theta))
+        cos_alpha = math.cos(math.radians(self.alpha))
+        sin_theta = math.sin(math.radians(self.theta))
+        sin_alpha = math.sin(math.radians(self.alpha))
         return numpy.matrix([
-                             [ math.cos(math.radians(self.theta)), -math.sin(math.radians(self.theta)) * math.cos(math.radians(self.alpha)), math.sin(math.radians(self.theta)) * math.sin(math.radians(self.alpha))],
-                             [ math.sin(math.radians(self.theta)), math.cos(math.radians(self.theta)) * math.cos(math.radians(self.alpha)), -math.cos(math.radians(self.theta)) * math.sin(math.radians(self.alpha))],
-                             [                    0, math.sin(math.radians(self.alpha)), math.cos(math.radians(self.alpha))],
+                             [ cos_theta, -sin_theta * cos_alpha, sin_theta * sin_alpha],
+                             [ sin_theta, cos_theta * cos_alpha, -cos_theta * sin_alpha],
+                             [                    0, sin_alpha, cos_alpha],
                             ]
                            )
     def getTranslationMatrix(self):
+        cos_theta = math.cos(math.radians(self.theta))
+        sin_theta = math.sin(math.radians(self.theta))
+
         return numpy.matrix([
-                             [self.a * math.cos(math.radians(self.theta))],
-                             [self.a * math.sin(math.radians(self.theta))],
-                             [                                     self.d],
+                             [self.a * cos_theta],
+                             [self.a * sin_theta],
+                             [         self.d],
                             ]
                            )
 
