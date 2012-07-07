@@ -111,7 +111,7 @@ class Maestro(threading.Thread):
             if time.time() - lastLog > self.logInterval:
                 lastLog = time.time()
                 self.maestroLogger.debug('Servo Positions: %s' % str(self.Positions))
-                self.maestroLogger.info('Average Update Frequency: %f' % (float(sum(self.frequencyHist)) / float(len(self.frequencyHist))))
+                self.maestroLogger.info('Average Update Frequency: %s' % ('?' if len(self.frequencyHist) == 0 else (float(sum(self.frequencyHist)) / float(len(self.frequencyHist)))) )
 
             #update positionList from Position and centerOffset dictionaries
             self.generate_position_list()
