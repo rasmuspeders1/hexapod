@@ -104,19 +104,27 @@ class Body:
         method that returns the transformation matrix for the robot body
         This matrix transforms body coordinates the global coordinates
         """
-        TMatrix11 = cos(rad(self.yaw)) * cos(rad(self.pitch))
-        TMatrix21 = sin(rad(self.yaw)) * cos(rad(self.pitch))
-        TMatrix31 = -sin(rad(self.pitch))
+        cos_roll = cos(rad(self.roll))
+        cos_pitch = cos(rad(self.pitch))
+        cos_yaw = cos(rad(self.yaw))
+        
+        sin_roll = sin(rad(self.roll))
+        sin_pitch = sin(rad(self.pitch))
+        sin_yaw = sin(rad(self.yaw))
+        
+        TMatrix11 = cos_yaw * cos_pitch
+        TMatrix21 = sin_yaw * cos_pitch
+        TMatrix31 = -sin_pitch
         TMatrix41 = 0
 
-        TMatrix12 = -cos(rad(self.roll)) * sin(rad(self.yaw)) + cos(rad(self.yaw)) * sin(rad(self.roll)) * sin(rad(self.pitch))
-        TMatrix22 = cos(rad(self.roll)) * cos(rad(self.yaw)) + sin(rad(self.roll)) * sin(rad(self.pitch)) * sin(rad(self.yaw))
-        TMatrix32 = cos(rad(self.pitch)) * sin(rad(self.roll))
+        TMatrix12 = -cos_roll * sin_yaw + cos_yaw * sin_roll * sin_pitch
+        TMatrix22 = cos_roll * cos_yaw + sin_roll * sin_pitch * sin_yaw
+        TMatrix32 = cos_pitch * sin_roll
         TMatrix42 = 0
 
-        TMatrix13 = sin(rad(self.roll)) * sin(rad(self.yaw)) + cos(rad(self.roll)) * cos(rad(self.yaw)) * sin(rad(self.pitch))
-        TMatrix23 = -cos(rad(self.yaw)) * sin(rad(self.roll)) + cos(rad(self.roll)) * sin(rad(self.pitch)) * sin(rad(self.yaw))
-        TMatrix33 = cos(rad(self.roll)) * cos(rad(self.pitch))
+        TMatrix13 = sin_roll * sin_yaw + cos_roll * cos_yaw * sin_pitch
+        TMatrix23 = -cos_yaw * sin_roll + cos_roll * sin_pitch * sin_yaw
+        TMatrix33 = cos_roll * cos_pitch
         TMatrix43 = 0
 
         TMatrix14 = self.x
@@ -133,17 +141,25 @@ class Body:
                            )
 
     def getRMatrix(self):
-        TMatrix11 = cos(rad(self.yaw)) * cos(rad(self.pitch))
-        TMatrix21 = sin(rad(self.yaw)) * cos(rad(self.pitch))
-        TMatrix31 = -sin(rad(self.pitch))
+        cos_roll = cos(rad(self.roll))
+        cos_pitch = cos(rad(self.pitch))
+        cos_yaw = cos(rad(self.yaw))
+        
+        sin_roll = sin(rad(self.roll))
+        sin_pitch = sin(rad(self.pitch))
+        sin_yaw = sin(rad(self.yaw))
+        
+        TMatrix11 = cos_yaw * cos_pitch
+        TMatrix21 = sin_yaw * cos_pitch
+        TMatrix31 = -sin_pitch
+        
+        TMatrix12 = -cos_roll * sin_yaw + cos_yaw * sin_roll * sin_pitch
+        TMatrix22 = cos_roll * cos_yaw + sin_roll * sin_pitch * sin_yaw
+        TMatrix32 = cos_pitch * sin_roll
 
-        TMatrix12 = -cos(rad(self.roll)) * sin(rad(self.yaw)) + cos(rad(self.yaw)) * sin(rad(self.roll)) * sin(rad(self.pitch))
-        TMatrix22 = cos(rad(self.roll)) * cos(rad(self.yaw)) + sin(rad(self.roll)) * sin(rad(self.pitch)) * sin(rad(self.yaw))
-        TMatrix32 = cos(rad(self.pitch)) * sin(rad(self.roll))
-
-        TMatrix13 = sin(rad(self.roll)) * sin(rad(self.yaw)) + cos(rad(self.roll)) * cos(rad(self.yaw)) * sin(rad(self.pitch))
-        TMatrix23 = -cos(rad(self.yaw)) * sin(rad(self.roll)) + cos(rad(self.roll)) * sin(rad(self.pitch)) * sin(rad(self.yaw))
-        TMatrix33 = cos(rad(self.roll)) * cos(rad(self.pitch))
+        TMatrix13 = sin_roll * sin_yaw + cos_roll * cos_yaw * sin_pitch
+        TMatrix23 = -cos_yaw * sin_roll + cos_roll * sin_pitch * sin_yaw
+        TMatrix33 = cos_roll * cos_pitch
 
         return numpy.matrix([
                              [TMatrix11, TMatrix12, TMatrix13],
